@@ -45,6 +45,12 @@ header{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var
 .title{flex:1;min-width:0}
 .title h1{margin:0;font-size:1.25rem;font-weight:700;letter-spacing:.01em;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .title p{margin:2px 0 0;font-size:.9rem;color:var(--ink-soft)}
+.title h1{display:flex;align-items:center;gap:8px}
+.conn{display:inline-flex;align-items:center;gap:5px;font-size:.78rem;font-weight:600;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--ink-soft);flex:none}
+.conn i{width:7px;height:7px;border-radius:50%;background:var(--line)}
+.conn.live i{background:var(--free)} .conn.off i{background:var(--busy)}
+.banner{background:var(--busy);color:#fff;padding:8px 14px;font-size:.95rem;font-weight:500}
+.banner[hidden]{display:none}
 .tally{display:flex;gap:14px;font-size:.95rem;font-weight:600}
 .tally span{display:flex;align-items:center;gap:6px;white-space:nowrap}
 .dot{width:11px;height:11px;border-radius:50%;display:inline-block}
@@ -92,17 +98,33 @@ footer{display:flex;gap:8px;padding:8px 10px;overflow-x:auto;background:var(--ba
 <div class="app">
   <header>
     <div class="title">
-      <h1 id="h1">Skansagarður floor</h1>
+      <h1><span id="h1">Skansagarður floor</span><span class="conn" id="conn"><i></i><span>Connecting</span></span></h1>
       <p id="hint">Tap a section to zoom in</p>
     </div>
     <div class="tally"><span><i class="dot f"></i><span id="nf">0</span>&nbsp;free</span><span><i class="dot b"></i><span id="nb">0</span>&nbsp;occupied</span></div>
     <button class="btn" id="back" hidden>Whole floor</button>
     <button class="btn" id="clear">Free all</button>
   </header>
+  <div class="banner" id="banner" hidden></div>
   <div class="stage"><svg id="map" viewBox="70 112 790 1060" preserveAspectRatio="xMidYMid meet" role="application" aria-label="Floor plan"></svg></div>
   <footer id="chips"></footer>
 </div>
-<script>
+<script type="module">
+/* =====================================================================
+   FIREBASE SETTINGS: paste your values between the quotes below.
+   Firebase console → Project settings → General → Your apps → Config
+   ===================================================================== */
+const FIREBASE_CONFIG = {
+  apiKey: "",
+  authDomain: "",
+  databaseURL: "",
+  projectId: "",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: ""
+};
+/* ===================================================================== */
+
 const TABLES = [{"k":"s","w":18,"h":14,"l":1,"n":1,"x":269.0,"y":1003.8},{"k":"s","w":18,"h":14,"l":1,"n":2,"x":269.2,"y":1035.5},{"k":"s","w":18,"h":14,"l":1,"n":3,"x":269.2,"y":1051.5},{"k":"s","w":18,"h":14,"l":1,"n":4,"x":269.2,"y":1083.7},{"k":"s","w":18,"h":14,"l":1,"n":5,"x":269.2,"y":1099.6},{"k":"s","w":18,"h":14,"l":1,"rot":45,"n":6,"x":258.7,"y":1139.2},{"k":"s","w":15,"h":16,"t":1,"n":7,"x":230.0,"y":1152.0},{"k":"s","w":15,"h":16,"t":1,"n":8,"x":214.0,"y":1152.0},{"k":"s","w":15,"h":16,"t":1,"n":9,"x":181.9,"y":1152.0},{"k":"s","w":15,"h":16,"t":1,"n":10,"x":165.9,"y":1152.0},{"k":"s","w":15,"h":16,"t":1,"n":11,"x":133.5,"y":1151.8},{"k":"s","w":30,"h":16,"t":2,"n":12,"x":97.9,"y":1151.8},{"k":"s","w":30,"h":16,"t":2,"b":2,"n":13,"x":98.5,"y":1099.9},{"k":"r","c":4,"n":14,"x":147.4,"y":1095.3},{"k":"r","c":4,"n":15,"x":199.2,"y":1095.3},{"k":"r","c":4,"n":16,"x":199.2,"y":1044.4},{"k":"r","c":4,"n":17,"x":147.4,"y":1044.4},{"k":"s","w":30,"h":16,"t":2,"b":2,"n":18,"x":98.1,"y":1048.4},{"k":"s","w":30,"h":16,"t":2,"b":2,"n":19,"x":97.7,"y":996.2},{"k":"r","c":4,"n":20,"x":147.6,"y":993.8},{"k":"r","c":4,"n":21,"x":199.2,"y":993.5},{"k":"r","c":4,"n":22,"x":199.2,"y":942.5},{"k":"r","c":4,"n":23,"x":147.4,"y":942.5},{"k":"s","w":30,"h":16,"t":2,"b":2,"n":24,"x":97.9,"y":943.9},{"k":"s","w":30,"h":16,"t":2,"b":2,"n":25,"x":97.9,"y":891.8},{"k":"r","c":4,"n":26,"x":147.4,"y":891.6},{"k":"s","w":15,"h":16,"t":1,"b":1,"n":27,"x":89.9,"y":839.7},{"k":"s","w":15,"h":16,"t":1,"b":1,"n":28,"x":89.9,"y":787.6},{"k":"s","w":30,"h":16,"t":2,"b":2,"n":29,"x":97.9,"y":735.5},{"k":"s","w":30,"h":16,"t":2,"b":2,"n":30,"x":97.9,"y":683.4},{"k":"r","c":4,"n":31,"x":147.4,"y":681.1},{"k":"r","c":4,"n":32,"x":147.6,"y":630.5},{"k":"s","w":30,"h":16,"t":2,"b":2,"n":33,"x":97.9,"y":631.3},{"k":"s","w":30,"h":16,"b":2,"n":34,"x":97.9,"y":580.8},{"k":"s","w":30,"h":18,"t":2,"n":35,"x":172.1,"y":530.6},{"k":"s","w":14,"h":18,"t":1,"n":36,"x":132.6,"y":530.6},{"k":"s","w":14,"h":18,"t":1,"n":37,"x":116.7,"y":530.6},{"k":"s","w":14,"h":18,"t":1,"n":38,"x":90.4,"y":530.6},{"k":"s","w":14,"h":18,"t":1,"b":1,"n":39,"x":89.9,"y":481.7},{"k":"s","w":14,"h":18,"t":1,"b":1,"n":40,"x":105.9,"y":481.6},{"k":"s","w":14,"h":18,"t":1,"b":1,"n":41,"x":123.2,"y":481.9},{"k":"r","c":4,"n":42,"x":162.5,"y":475.1},{"k":"r","c":4,"n":43,"x":163.0,"y":424.7},{"k":"s","w":14,"h":18,"t":1,"b":1,"n":44,"x":122.8,"y":430.6},{"k":"s","w":14,"h":18,"t":1,"b":1,"n":45,"x":106.5,"y":430.3},{"k":"s","w":14,"h":18,"t":1,"b":1,"n":46,"x":90.5,"y":430.3},{"k":"s","w":14,"h":18,"t":1,"b":1,"n":47,"x":89.9,"y":380.9},{"k":"s","w":14,"h":18,"t":1,"b":1,"n":48,"x":106.1,"y":381.2},{"k":"s","w":14,"h":18,"t":1,"b":1,"n":49,"x":122.4,"y":381.5},{"k":"r","c":4,"n":50,"x":162.5,"y":375.1},{"k":"r","c":4,"n":51,"x":163.1,"y":324.7},{"k":"s","w":14,"h":18,"t":1,"b":1,"n":52,"x":122.8,"y":330.3},{"k":"s","w":14,"h":18,"t":1,"b":1,"n":53,"x":106.5,"y":330.0},{"k":"s","w":14,"h":18,"t":1,"b":1,"n":54,"x":90.5,"y":330.0},{"k":"s","w":14,"h":18,"t":1,"b":1,"n":55,"x":90.1,"y":279.6},{"k":"s","w":14,"h":18,"t":1,"b":1,"n":56,"x":106.5,"y":278.9},{"k":"s","w":20,"h":13,"r":1,"n":57,"x":201.5,"y":245.6},{"k":"s","w":20,"h":13,"r":1,"n":58,"x":201.5,"y":217.5},{"k":"s","w":20,"h":28,"r":2,"n":59,"x":201.0,"y":178.3},{"k":"s","w":20,"h":13,"l":1,"r":1,"n":60,"x":201.5,"y":138.0},{"k":"s","w":20,"h":13,"l":1,"r":1,"n":61,"x":254.8,"y":138.0},{"k":"r","c":4,"n":62,"x":273.8,"y":178.5},{"k":"r","c":4,"n":63,"x":273.9,"y":228.6},{"k":"r","c":4,"n":64,"x":323.8,"y":228.6},{"k":"r","c":4,"n":65,"x":323.8,"y":178.6},{"k":"s","w":20,"h":13,"l":1,"r":1,"n":66,"x":308.5,"y":138.0},{"k":"s","w":20,"h":13,"l":1,"r":1,"n":67,"x":363.3,"y":137.7},{"k":"r","c":4,"n":68,"x":374.1,"y":178.3},{"k":"r","c":4,"n":69,"x":374.3,"y":228.6},{"k":"s","w":15,"h":16,"t":1,"n":70,"x":385.5,"y":297.5},{"k":"s","w":30,"h":16,"t":2,"n":71,"x":425.0,"y":297.5},{"k":"r","c":4,"n":72,"x":423.7,"y":228.6},{"k":"r","c":4,"n":73,"x":423.7,"y":178.6},{"k":"s","w":20,"h":13,"l":1,"r":1,"n":74,"x":415.9,"y":138.0},{"k":"s","w":20,"h":13,"l":1,"r":1,"n":75,"x":468.8,"y":137.7},{"k":"r","c":4,"n":76,"x":489.1,"y":178.6},{"k":"r","c":4,"n":77,"x":489.1,"y":228.6},{"k":"s","w":30,"h":16,"t":2,"n":78,"x":465.3,"y":297.5},{"k":"s","w":15,"h":16,"t":1,"n":79,"x":504.8,"y":297.5},{"k":"r","c":4,"n":80,"x":539.2,"y":228.6},{"k":"r","c":4,"n":81,"x":539.2,"y":178.6},{"k":"s","w":20,"h":13,"l":1,"r":1,"n":82,"x":521.4,"y":138.0},{"k":"s","w":20,"h":13,"l":1,"r":1,"n":83,"x":574.0,"y":138.0},{"k":"r","c":4,"n":84,"x":589.4,"y":178.6},{"k":"r","c":4,"n":85,"x":589.4,"y":228.6},{"k":"r","c":6,"r":16,"n":86,"x":665.7,"y":254.3},{"k":"r","c":6,"r":16,"n":87,"x":665.7,"y":190.3},{"k":"s","w":20,"h":13,"l":1,"r":1,"n":88,"x":628.8,"y":138.0},{"k":"s","w":20,"h":13,"l":1,"r":1,"n":89,"x":682.3,"y":137.7},{"k":"s","w":20,"h":13,"l":1,"r":1,"n":90,"x":736.1,"y":138.0},{"k":"s","w":18,"h":28,"l":2,"n":91,"x":736.1,"y":180.7},{"k":"s","w":18,"h":13,"l":1,"n":92,"x":736.5,"y":216.9},{"k":"s","w":18,"h":13,"l":1,"n":93,"x":736.1,"y":245.7},{"k":"r","c":5,"n":94,"x":749.9,"y":332.2},{"k":"s","w":30,"h":16,"t":2,"b":2,"n":95,"x":837.3,"y":281.6},{"k":"s","w":30,"h":16,"t":2,"b":2,"n":96,"x":837.3,"y":332.3},{"k":"s","w":14,"h":18,"t":1,"b":1,"n":97,"x":847.4,"y":381.3},{"k":"s","w":14,"h":18,"t":1,"b":1,"n":98,"x":826.8,"y":381.9},{"k":"s","w":14,"h":18,"t":1,"b":1,"n":99,"x":810.9,"y":381.9},{"k":"s","w":18,"h":13,"r":1,"n":100,"x":755.2,"y":385.3},{"k":"s","w":18,"h":13,"r":1,"n":101,"x":755.2,"y":401.4},{"k":"s","w":18,"h":13,"r":1,"n":102,"x":755.1,"y":429.0},{"k":"s","w":18,"h":13,"r":1,"n":103,"x":755.2,"y":445.1},{"k":"s","w":14,"h":18,"t":1,"b":1,"n":104,"x":811.1,"y":432.5},{"k":"s","w":14,"h":18,"t":1,"b":1,"n":105,"x":827.1,"y":432.5},{"k":"s","w":14,"h":18,"t":1,"b":1,"n":106,"x":846.5,"y":432.9},{"k":"s","w":14,"h":18,"t":1,"b":1,"n":107,"x":846.5,"y":483.0},{"k":"s","w":14,"h":18,"t":1,"b":1,"n":108,"x":827.1,"y":482.4},{"k":"s","w":14,"h":18,"t":1,"b":1,"n":109,"x":811.1,"y":482.4},{"k":"s","w":18,"h":13,"r":1,"n":110,"x":754.8,"y":473.3},{"k":"s","w":18,"h":13,"r":1,"n":111,"x":755.2,"y":500.7},{"k":"s","w":18,"h":13,"r":1,"n":112,"x":755.2,"y":516.8},{"k":"s","w":18,"h":13,"r":1,"n":113,"x":754.5,"y":544.3},{"k":"s","w":30,"h":16,"t":2,"b":2,"n":114,"x":837.0,"y":533.9}];
 const SECTIONS = [
   {id:1, range:[1,34],  poly:[[80,548],[240,548],[240,700],[289,760],[289,1127],[255,1160],[80,1160]], label:[195,620]},
@@ -114,10 +136,50 @@ const SECTIONS = [
 const FULL = [70,112,790,1060];
 const NS = "http://www.w3.org/2000/svg";
 const svg = document.getElementById('map');
-const KEY = 'skansagardur-tables-v1';
 let busy = new Set();
-try{ const s = localStorage.getItem(KEY); if(s) busy = new Set(JSON.parse(s)); }catch(e){}
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify([...busy])); }catch(e){} }
+/* ---------- shared state (Firebase Realtime Database) ---------- */
+const DB_PATH = 'skansagardur/tables';
+const FB = 'https://www.gstatic.com/firebasejs/10.12.2/';
+let writeTables = null;   // (changes: {n: true|null}) => void
+const connEl = document.getElementById('conn'), banner = document.getElementById('banner');
+function setConn(state, text){ connEl.className = 'conn ' + state; connEl.querySelector('span').textContent = text; }
+function showBanner(msg){ banner.textContent = msg; banner.hidden = !msg; }
+
+async function startSync(){
+  const cfg = FIREBASE_CONFIG;
+  if(!cfg || !cfg.apiKey || !cfg.databaseURL){
+    setConn('off','Not shared');
+    showBanner('Shared mode is not set up yet. Add your Firebase settings at the top of the script in index.html. Changes are only saved on this device for now.');
+    return startLocal();
+  }
+  try{
+    const [{initializeApp},{getAuth,signInAnonymously,onAuthStateChanged},{getDatabase,ref,onValue,update}] = await Promise.all([
+      import(FB+'firebase-app.js'), import(FB+'firebase-auth.js'), import(FB+'firebase-database.js')]);
+    const app = initializeApp(cfg), auth = getAuth(app), db = getDatabase(app);
+    const tablesRef = ref(db, DB_PATH);
+    writeTables = changes => update(tablesRef, changes).catch(err => showBanner('Could not save the change: ' + err.message));
+    onValue(ref(db,'.info/connected'), snap => snap.val() ? (setConn('live','Live'), showBanner('')) : setConn('off','Offline'));
+    onAuthStateChanged(auth, user => {
+      if(!user) return;
+      onValue(tablesRef, snap => {
+        const v = snap.val() || {};
+        busy = new Set(Object.keys(v).filter(k => v[k] === true).map(Number));
+        render();
+      }, err => showBanner('Cannot read table status: ' + err.message + '. Check the database rules.'));
+    });
+    await signInAnonymously(auth);
+  } catch(err){
+    setConn('off','Error');
+    showBanner('Could not connect to Firebase: ' + err.message);
+  }
+}
+function startLocal(){
+  const KEY = 'skansagardur-tables-v1';
+  try{ const v = localStorage.getItem(KEY); if(v) busy = new Set(JSON.parse(v)); }catch(e){}
+  writeTables = () => { try{ localStorage.setItem(KEY, JSON.stringify([...busy])); }catch(e){} };
+  render();
+}
+function commit(changes){ if(writeTables) writeTables(changes); }
 const secOf = n => SECTIONS.find(s => n>=s.range[0] && n<=s.range[1]).id;
 
 function el(tag, attrs, parent){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); if(parent) parent.appendChild(e); return e; }
@@ -186,10 +248,11 @@ TABLES.forEach(t=>{
 let last={n:0,time:0};
 function tap(t){
   const now=performance.now();
-  if(last.n===t.n && now-last.time<350){ busy.delete(t.n); last={n:0,time:0}; }
-  else { busy.add(t.n); last={n:t.n,time:now}; }
+  let val;
+  if(last.n===t.n && now-last.time<350){ busy.delete(t.n); val=null; last={n:0,time:0}; }
+  else { busy.add(t.n); val=true; last={n:t.n,time:now}; }
   t.g.classList.remove('pop'); void t.g.getBBox(); t.g.classList.add('pop');
-  save(); render();
+  render(); commit({[t.n]:val});
 }
 
 /* --- zoom --- */
@@ -218,7 +281,7 @@ document.getElementById('clear').onclick=()=>{
   const n = list.filter(t=>busy.has(t.n)).length;
   if(!n) return;
   if(!confirm(`Mark ${n} occupied table${n>1?'s':''} ${active?'in section '+active:''} as available?`.replace('  ',' '))) return;
-  list.forEach(t=>busy.delete(t.n)); save(); render();
+  const ch={}; list.forEach(t=>{ busy.delete(t.n); ch[t.n]=null; }); render(); commit(ch);
 };
 
 /* --- chips --- */
@@ -253,6 +316,7 @@ function render(){
   document.getElementById('hint').textContent=active?'Tap: occupied. Double-tap: available.':'Tap a section to zoom in';
 }
 render();
+startSync();
 </script>
 </body>
 </html>
