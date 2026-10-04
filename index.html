@@ -59,6 +59,13 @@ button{font:inherit;color:inherit;cursor:pointer}
 .btn{border:1px solid var(--line);background:var(--chip);border-radius:8px;padding:7px 12px;font-weight:600;font-size:.95rem;min-height:38px}
 .btn:focus-visible,.chip:focus-visible{outline:3px solid var(--free);outline-offset:2px}
 #back[hidden]{display:none}
+#refresh{display:inline-flex;align-items:center;gap:6px}
+#refresh svg{width:16px;height:16px;display:block}
+#refresh.spin svg{animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translate(-50%,10px);background:var(--ink);color:var(--floor);padding:8px 14px;border-radius:8px;font-weight:600;font-size:.95rem;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:10}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+@media (max-width:520px){ #refresh .lbl{display:none} }
 .stage{flex:1;min-height:0;position:relative;touch-action:manipulation}
 svg{width:100%;height:100%;display:block}
 .floor{fill:var(--floor);stroke:var(--ink);stroke-width:3}
@@ -102,12 +109,14 @@ footer{display:flex;gap:8px;padding:8px 10px;overflow-x:auto;background:var(--ba
       <p id="hint">Tap a section to zoom in</p>
     </div>
     <div class="tally"><span><i class="dot f"></i><span id="nf">0</span>&nbsp;free</span><span><i class="dot b"></i><span id="nb">0</span>&nbsp;occupied</span></div>
+    <button class="btn" id="refresh" aria-label="Refresh tables"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg><span class="lbl">Refresh</span></button>
     <button class="btn" id="back" hidden>Whole floor</button>
     <button class="btn" id="clear">Free all</button>
   </header>
   <div class="banner" id="banner" hidden></div>
   <div class="stage"><svg id="map" viewBox="70 112 790 1060" preserveAspectRatio="xMidYMid meet" role="application" aria-label="Floor plan"></svg></div>
   <footer id="chips"></footer>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </div>
 <script type="module">
 /* =====================================================================
@@ -140,7 +149,8 @@ let busy = new Set();
 /* ---------- shared state (Firebase Realtime Database) ---------- */
 const DB_PATH = 'skansagardur/tables';
 const FB = 'https://www.gstatic.com/firebasejs/10.12.2/';
-let writeTables = null;   // (changes: {n: true|null}) => void
+let writeTables = null;
+let refreshTables = null;   // () => Promise<void>   // (changes: {n: true|null}) => void
 const connEl = document.getElementById('conn'), banner = document.getElementById('banner');
 function setConn(state, text){ connEl.className = 'conn ' + state; connEl.querySelector('span').textContent = text; }
 function showBanner(msg){ banner.textContent = msg; banner.hidden = !msg; }
@@ -153,10 +163,17 @@ async function startSync(){
     return startLocal();
   }
   try{
-    const [{initializeApp},{getAuth,signInAnonymously,onAuthStateChanged},{getDatabase,ref,onValue,update}] = await Promise.all([
+    const [{initializeApp},{getAuth,signInAnonymously,onAuthStateChanged},{getDatabase,ref,onValue,update,get,goOffline,goOnline}] = await Promise.all([
       import(FB+'firebase-app.js'), import(FB+'firebase-auth.js'), import(FB+'firebase-database.js')]);
     const app = initializeApp(cfg), auth = getAuth(app), db = getDatabase(app);
     const tablesRef = ref(db, DB_PATH);
+    refreshTables = async () => {
+      goOffline(db); goOnline(db);                    // force a fresh connection
+      const snap = await Promise.race([get(tablesRef), new Promise((_,r)=>setTimeout(()=>r(new Error('No connection')),8000))]);
+      const v = snap.val() || {};
+      busy = new Set(Object.keys(v).filter(k => v[k] === true).map(Number));
+      render();
+    };
     writeTables = changes => update(tablesRef, changes).catch(err => showBanner('Could not save the change: ' + err.message));
     onValue(ref(db,'.info/connected'), snap => snap.val() ? (setConn('live','Live'), showBanner('')) : setConn('off','Offline'));
     onAuthStateChanged(auth, user => {
@@ -177,8 +194,23 @@ function startLocal(){
   const KEY = 'skansagardur-tables-v1';
   try{ const v = localStorage.getItem(KEY); if(v) busy = new Set(JSON.parse(v)); }catch(e){}
   writeTables = () => { try{ localStorage.setItem(KEY, JSON.stringify([...busy])); }catch(e){} };
+  refreshTables = async () => { try{ const v = localStorage.getItem(KEY); busy = new Set(v ? JSON.parse(v) : []); }catch(e){} render(); };
   render();
 }
+const toastEl = document.getElementById('toast'); let toastT;
+function toast(msg){ toastEl.textContent = msg; toastEl.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(()=>toastEl.classList.remove('show'), 2200); }
+const refreshBtn = document.getElementById('refresh');
+refreshBtn.onclick = async () => {
+  if(refreshBtn.classList.contains('spin')) return;
+  refreshBtn.classList.add('spin');
+  const t0 = performance.now();
+  try{
+    if(refreshTables) await refreshTables();
+    const time = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    setTimeout(()=>toast('Tables updated ' + time), Math.max(0, 500-(performance.now()-t0)));
+  }catch(err){ toast('Could not refresh: ' + err.message); }
+  setTimeout(()=>refreshBtn.classList.remove('spin'), Math.max(0, 500-(performance.now()-t0)));
+};
 function commit(changes){ if(writeTables) writeTables(changes); }
 const secOf = n => SECTIONS.find(s => n>=s.range[0] && n<=s.range[1]).id;
 
